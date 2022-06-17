@@ -17,9 +17,18 @@ func main() {
 		return nil
 	})
 
+	connectedNames := make([]string, 0)
+	// add names
+	server.OnEvent("/", "names", func(s socketio.Conn, name string) {
+		fmt.Println("received name: ", name)
+		connectedNames = append(connectedNames, name)
+		server.BroadcastToNamespace("/", "names-list", connectedNames)
+	})
+
 	server.OnEvent("/", "notice", func(s socketio.Conn, msg string) {
 		fmt.Println("notice:", msg)
-		s.Emit("reply", "have "+msg)
+		server.BroadcastToNamespace("/", "reply", "have "+msg)
+		// s.Emit("reply", "have "+msg)
 	})
 
 	server.OnEvent("/chat", "msg", func(s socketio.Conn, msg string) string {
@@ -52,7 +61,7 @@ func main() {
 	log.Println("Serving at localhost:8080...")
 
 	corsSetting := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:3000"},
+		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:5500"},
 		AllowCredentials: true,
 	})
 
