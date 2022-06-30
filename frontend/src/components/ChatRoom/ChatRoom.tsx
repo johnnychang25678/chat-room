@@ -9,6 +9,22 @@ type LocationData = {
   data: string
 }
 
+class Message {
+  from: string;
+  content: string;
+  constructor(from: string, content: string) {
+    this.from = from;
+    this.content = content;
+  }
+  static fromJson(json: any) {
+    const { from, content } = json
+    return new Message(from, content)
+  }
+  isSelf(name: string): boolean {
+    return name === this.from;
+  }
+}
+
 // TODO: when component unmount, should close the connection with ws and clear the name list
 
 export const ChatRoom = () => {
@@ -16,17 +32,18 @@ export const ChatRoom = () => {
   const [name, setName] = useState<string>("");
   const [chatInput, setChatInput] = useState<string>("");
   const [names, setNames] = useState<string[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const location = useLocation()
-  console.log(location)
   const isLocationStateExist = location.state !== null
-  console.log(isLocationStateExist)
+
   // connect to ws  
   useEffect(() => {
     if (isLocationStateExist) {
       const socket = io("http://localhost:8080")
-      socket.on("reply", (message: any) => {
-        console.log(message)
+      socket.on("chat", (message: string) => {
+        const m = Message.fromJson(JSON.parse(message))
+        setMessages(prevState => [...prevState, m])
       })
 
       socket.on("names-list", (namesFromServer: string[]) => {
@@ -43,54 +60,46 @@ export const ChatRoom = () => {
   useEffect(() => {
     if (isLocationStateExist) {
       const locState = location.state as LocationData
-      console.log(locState.data)
       setName(locState.data)
     }
   }, []);
 
+  useEffect(() => {
+    emitName(name)
+  }, [name, socket]);
+
   function emitName(name: string) {
-    if (name !== "") {
+    if (name !== "" && socket) {
       socket.emit("names", name)
     }
   }
 
-  useMemo(() => {
-    emitName(name)
-  }, [socket, name])
-
+  // when user is typing
   function handleInputChange(input: string) {
     setChatInput(input)
   }
-
+  // when user hit enter
   function handleKeydown(e: React.KeyboardEvent<HTMLElement>) {
     if (e.key === "Enter") {
-      // sendMessage(chatInput)
-      handleInputChange("")
-    }
-  }
-
-  // function sendMessage(message: string) {
-  //   if (socket !== null) {
-  //     socket.emit("notice", message)
-  //   }
-  // }
-
-  function genMessageBoxes(): JSX.Element[] {
-    const boxes: JSX.Element[] = []
-    for (let i = 0; i < 10; i++) {
-      if (i % 2 === 0) {
-        boxes.push(<MessageBox from={MessageFrom.Self} name={"You"} />)
-      } else {
-        boxes.push(<MessageBox from={MessageFrom.Others} name={"Sarah"} />)
+      if (chatInput !== "") {
+        sendMessage(name, chatInput)
+        handleInputChange("")
       }
     }
-    return boxes
   }
 
+  function sendMessage(from: string, message: string) {
+    if (socket !== null) {
+      // const m: Message = { from: from, content: message }
+      const m: Message = new Message(from, message)
+      socket.emit("chat", JSON.stringify(m))
+    }
+  }
 
-
+  // TODO: implement when new message should move to the bottom of scrollable
   return (
     <>
+      {/* name can only come from previous page through navigate() */}
       {name === "" ?
         <div>
           Please go to {<Link to="/" className="text-blue-500"> home</Link>} and enter your name to join
@@ -99,14 +108,19 @@ export const ChatRoom = () => {
           <NavBar />
           <div className="flex h-[83%]">
             <div className="w-[30%] max-w-[300px] bg-blue-500 hidden md:block">
-              {names.map(name => <OnlineChatter name={name} />)}
+              {names.map((name, i) => <OnlineChatter key={i} name={name} />)}
             </div>
 
             <div className="grow flex-col bg-green-200">
               {/* scrollable wrapper */}
               <div className="overflow-auto h-[90%] bg-white px-2">
                 {
-                  genMessageBoxes()
+                  messages.map((message, i) =>
+                    <MessageBox
+                      key={i}
+                      from={message.isSelf(name) ? MessageFrom.Self : MessageFrom.Others}
+                      name={message.isSelf(name) ? "You" : message.from}
+                      message={message.content} />)
                 }
               </div>
               <div className="flex items-center h-[10%]">

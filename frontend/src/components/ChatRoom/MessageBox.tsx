@@ -6,9 +6,10 @@ export enum MessageFrom {
 type MessagBoxProps = {
   from: MessageFrom
   name: string
+  message: string
 }
 
-export const MessageBox = ({ from, name }: MessagBoxProps) => {
+export const MessageBox = ({ from, name, message }: MessagBoxProps) => {
 
   let childAlign: string = "justify-end"
   let nameAlign: string = "text-right"
@@ -21,7 +22,7 @@ export const MessageBox = ({ from, name }: MessagBoxProps) => {
     <div className={`p-2 my-1.5  w-full flex ${childAlign}`}>
       <div>
         <div className="border-solid border-[1px] p-2 w-[100px] rounded-xl inline-block">
-          hihihi
+          {message}
         </div>
         <span className={`block text-xs text-gray-400 ${nameAlign}`}>
           {name}
